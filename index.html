@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EcoRank — Grow Your Town</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --green:#1D9E75;--green-light:#E1F5EE;--green-mid:#9FE1CB;--green-dark:#085041;
+  --amber:#BA7517;--amber-light:#FAEEDA;
+  --red:#A32D2D;--red-light:#FCEBEB;
+  --surface:#ffffff;--bg:#f4f7f4;--border:rgba(0,0,0,0.09);--border-mid:rgba(0,0,0,0.15);
+  --text:#111810;--text-muted:#6b7a6b;--text-faint:#9eab9e;
+  --radius-sm:8px;--radius-md:12px;--radius-lg:18px;--radius-xl:24px;
+  --shadow:0 2px 16px rgba(0,0,0,0.07);
+  --font-head:'Sora',sans-serif;--font-body:'DM Sans',sans-serif;
+}
+html{font-size:16px;}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;}
+#app{width:100%;max-width:440px;min-height:100vh;background:var(--surface);position:relative;}
+.screen{display:none;animation:fadeIn .25s ease;}
+.screen.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* loading overlay */
+#loading-overlay{position:fixed;inset:0;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px;}
+#loading-overlay .logo{font-family:var(--font-head);font-size:2rem;font-weight:700;letter-spacing:-0.03em;}
+#loading-overlay .logo span{color:var(--green);}
+.spinner{width:32px;height:32px;border:3px solid var(--green-light);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* auth */
+.auth-wrap{padding:2.5rem 1.75rem 2rem;min-height:100vh;display:flex;flex-direction:column;justify-content:center;}
+.auth-logo{font-family:var(--font-head);font-size:2rem;font-weight:700;color:var(--text);margin-bottom:4px;letter-spacing:-0.03em;}
+.auth-logo span{color:var(--green);}
+.auth-tagline{font-size:0.875rem;color:var(--text-muted);margin-bottom:2.5rem;}
+.progress-dots{display:flex;gap:6px;margin-bottom:1rem;}
+.dot{width:28px;height:5px;border-radius:3px;background:#e0e8e0;transition:background .3s;}
+.dot.done{background:var(--green-mid);}
+.dot.active{background:var(--green);}
+.step-label{font-size:0.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:1.5rem;}
+.field{margin-bottom:1rem;}
+.field label{font-size:0.78rem;font-weight:500;color:var(--text-muted);display:block;margin-bottom:5px;}
+.field input,.field select{width:100%;padding:11px 14px;border:1.5px solid var(--border-mid);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:0.9rem;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--green);}
+.field input[readonly]{background:var(--bg);color:var(--text-muted);cursor:default;}
+.field-hint{font-size:0.72rem;color:var(--text-faint);margin-top:5px;}
+.err-box{display:none;background:var(--red-light);border:1px solid #f0a0a0;border-radius:var(--radius-sm);padding:10px 14px;font-size:0.82rem;color:var(--red);margin-bottom:1rem;}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--radius-sm);font-family:var(--font-head);font-size:0.9rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s;margin-top:6px;}
+.btn:active{transform:scale(0.98);}
+.btn:disabled{opacity:0.45;cursor:not-allowed;}
+.btn-primary{background:var(--green);color:#fff;}
+.btn-primary:hover:not(:disabled){background:#19906a;}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--border-mid);margin-top:8px;}
+.btn-outline:hover{background:var(--bg);}
+.btn-danger{background:var(--red-light);color:var(--red);border:1px solid #f0a0a0;font-size:0.8rem;padding:8px 14px;width:auto;margin-top:12px;}
+.auth-switch{text-align:center;margin-top:1.5rem;font-size:0.83rem;color:var(--text-muted);}
+.auth-switch a{color:var(--green);cursor:pointer;font-weight:500;text-decoration:none;}
+
+/* location */
+.loc-card{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:2rem 1.25rem;text-align:center;margin-bottom:1.25rem;}
+.loc-icon{font-size:2.5rem;margin-bottom:.75rem;}
+.loc-card h2{font-family:var(--font-head);font-size:1.1rem;font-weight:600;margin-bottom:8px;}
+.loc-card p{font-size:0.85rem;color:var(--text-muted);line-height:1.6;margin-bottom:1.25rem;}
+.loc-result{display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 14px;font-size:0.84rem;color:var(--green-dark);margin-bottom:1rem;}
+
+/* main app */
+#screen-app{min-height:100vh;padding-bottom:80px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem 0.85rem;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+.topbar-logo{font-family:var(--font-head);font-size:1.25rem;font-weight:700;letter-spacing:-0.02em;color:var(--text);}
+.topbar-logo span{color:var(--green);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.town-chip{font-size:0.72rem;font-weight:500;background:var(--green-light);color:var(--green-dark);padding:4px 10px;border-radius:20px;}
+.avatar-sm{width:32px;height:32px;border-radius:50%;background:var(--green-mid);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.72rem;font-weight:700;cursor:pointer;flex-shrink:0;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:440px;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:20;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px 8px;cursor:pointer;border:none;background:none;color:var(--text-faint);font-family:var(--font-body);font-size:0.68rem;font-weight:500;transition:color .2s;gap:4px;}
+.nav-btn.active{color:var(--green);}
+.nav-icon{font-size:1.25rem;line-height:1;}
+.tab-content{display:none;padding:1.25rem;}
+.tab-content.active{display:block;animation:fadeIn .2s ease;}
+.sec-label{font-size:0.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-bottom:10px;}
+
+/* profile */
+.profile-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;box-shadow:var(--shadow);}
+.profile-top{display:flex;align-items:center;gap:14px;margin-bottom:1rem;}
+.avatar-lg{width:52px;height:52px;border-radius:50%;background:var(--green-mid);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:1.1rem;font-weight:700;flex-shrink:0;}
+.profile-name{font-family:var(--font-head);font-size:1rem;font-weight:600;}
+.profile-sub{font-size:0.78rem;color:var(--text-muted);margin-top:2px;}
+.score-pill{background:var(--green-light);color:var(--green-dark);font-family:var(--font-head);font-size:1rem;font-weight:700;padding:6px 14px;border-radius:20px;white-space:nowrap;}
+.xp-row{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted);margin-bottom:5px;}
+.bar-track{background:var(--bg);border-radius:6px;height:8px;}
+.bar-fill{height:8px;border-radius:6px;background:var(--green);transition:width .6s cubic-bezier(.4,0,.2,1);}
+.xp-hint{font-size:0.7rem;color:var(--text-faint);margin-top:4px;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;}
+.stat-label{font-size:0.7rem;color:var(--text-faint);margin-bottom:2px;}
+.stat-val{font-family:var(--font-head);font-size:1.4rem;font-weight:700;}
+.stat-sub{font-size:0.68rem;color:var(--text-faint);margin-top:1px;}
+.lifetime-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.lifetime-label{font-size:0.78rem;color:var(--text-muted);}
+.lifetime-val{font-family:var(--font-head);font-size:0.88rem;font-weight:700;color:var(--green);}
+
+/* activity */
+.activity-list{display:flex;flex-direction:column;gap:8px;}
+.act-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
+.act-icon-wrap{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.act-info{flex:1;min-width:0;}
+.act-title{font-size:0.85rem;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.act-meta{font-size:0.72rem;color:var(--text-faint);margin-top:2px;}
+.act-pts{font-family:var(--font-head);font-size:0.85rem;font-weight:700;color:var(--green);white-space:nowrap;}
+.verified-chip{font-size:0.65rem;font-weight:600;background:var(--green-light);color:var(--green-dark);padding:2px 7px;border-radius:20px;}
+.empty-state{text-align:center;padding:2.5rem 1rem;color:var(--text-faint);font-size:0.85rem;}
+.empty-icon{font-size:2rem;margin-bottom:8px;}
+
+/* badges */
+.badge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.25rem;}
+.badge-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 8px;text-align:center;}
+.badge-card.earned{box-shadow:0 0 0 2px var(--green-mid);}
+.badge-card.locked{opacity:0.38;}
+.badge-emoji{font-size:1.6rem;margin-bottom:6px;}
+.badge-name{font-family:var(--font-head);font-size:0.72rem;font-weight:600;}
+.badge-desc{font-size:0.65rem;color:var(--text-faint);margin-top:3px;}
+.badge-earned-label{font-size:0.65rem;font-weight:600;color:var(--green);margin-top:4px;}
+
+/* log */
+.log-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem;}
+.log-btn{background:var(--surface);border:1.5px solid var(--border-mid);border-radius:var(--radius-md);padding:1.1rem 1rem;cursor:pointer;text-align:left;transition:border-color .2s,background .2s;box-shadow:var(--shadow);}
+.log-btn:hover{border-color:var(--green);background:var(--green-light);}
+.log-btn-icon{font-size:1.5rem;margin-bottom:8px;}
+.log-btn-label{font-family:var(--font-head);font-size:0.88rem;font-weight:600;}
+.log-btn-pts{font-size:0.72rem;color:var(--text-muted);margin-top:3px;}
+.verify-box{background:var(--bg);border-radius:var(--radius-md);padding:14px;font-size:0.82rem;color:var(--text-muted);line-height:1.7;}
+.vstep{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.vnum{width:20px;height:20px;border-radius:50%;background:var(--green-light);color:var(--green-dark);font-size:0.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+
+/* leaderboard */
+.lb-toggle{display:flex;gap:6px;margin-bottom:10px;}
+.lb-toggle-btn{font-size:0.78rem;font-weight:500;padding:6px 14px;border-radius:20px;border:1.5px solid var(--border-mid);cursor:pointer;background:none;color:var(--text-muted);transition:all .2s;font-family:var(--font-body);}
+.lb-toggle-btn.active{background:var(--green-light);color:var(--green-dark);border-color:var(--green-mid);}
+.lb-note{font-size:0.72rem;color:var(--text-faint);margin-bottom:10px;}
+.lb-list{display:flex;flex-direction:column;gap:8px;}
+.lb-item{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow);}
+.lb-item.me{border:2px solid var(--green);}
+.rank-col{width:26px;text-align:center;font-family:var(--font-head);font-size:0.85rem;font-weight:700;color:var(--text-faint);flex-shrink:0;}
+.rank-col.gold{color:#BA7517;}.rank-col.silver{color:#888780;}.rank-col.bronze{color:#854F0B;}
+.lb-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:0.75rem;font-weight:700;flex-shrink:0;}
+.lb-info{flex:1;min-width:0;}
+.lb-name{font-size:0.85rem;font-weight:500;display:flex;align-items:center;gap:5px;}
+.lb-sub{font-size:0.7rem;color:var(--text-faint);margin-top:2px;}
+.lb-pts{font-family:var(--font-head);font-size:0.88rem;font-weight:700;color:var(--green);}
+.you-tag{font-size:0.62rem;font-weight:700;background:var(--green-light);color:var(--green-dark);padding:2px 6px;border-radius:10px;}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease;}
+.modal-sheet{background:var(--surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;padding:1.5rem 1.5rem 2rem;width:100%;max-width:440px;max-height:92vh;overflow-y:auto;animation:slideUp .25s ease;}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-handle{width:40px;height:4px;background:var(--border-mid);border-radius:2px;margin:0 auto 1.25rem;}
+.modal-title{font-family:var(--font-head);font-size:1.1rem;font-weight:700;margin-bottom:1.25rem;}
+.ai-status{display:none;margin-top:8px;padding:9px 12px;border-radius:var(--radius-sm);font-size:0.8rem;line-height:1.4;}
+.ai-status.checking{background:var(--bg);color:var(--text-muted);}
+.ai-status.ok{background:var(--green-light);color:var(--green-dark);}
+.ai-status.fail{background:var(--red-light);color:var(--red);}
+.modal-actions{display:flex;gap:8px;margin-top:1.25rem;}
+.modal-actions .btn{margin-top:0;}
+.btn-ghost{background:var(--bg);color:var(--text-muted);flex:0 0 auto;width:auto;padding:13px 20px;}
+
+/* toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:10px 20px;border-radius:20px;font-family:var(--font-head);font-size:0.82rem;font-weight:600;opacity:0;transition:opacity .3s,transform .3s;z-index:200;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* badge banner */
+.badge-banner{display:none;background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-md);padding:12px 14px;font-size:0.85rem;color:var(--green-dark);margin-bottom:12px;align-items:center;gap:10px;font-weight:500;}
+.badge-banner.show{display:flex;animation:fadeIn .3s ease;}
+
+/* saving indicator */
+.saving-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:6px;opacity:0;transition:opacity .3s;}
+.saving-dot.show{opacity:1;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+@media(min-width:441px){
+  body{padding:1rem;background:#e8ede8;}
+  #app{border-radius:var(--radius-xl);min-height:auto;box-shadow:0 8px 40px rgba(0,0,0,.12);overflow:hidden;}
+  .bottom-nav{border-radius:0 0 var(--radius-xl) var(--radius-xl);}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="logo">Eco<span>Rank</span></div>
+  <div class="spinner"></div>
+</div>
+
+<!-- SIGNUP -->
+<div id="screen-signup" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">Eco<span>Rank</span></div>
+    <div class="auth-tagline">Join your town's green movement</div>
+    <div class="progress-dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+    <div class="step-label">Step 1 of 3 — Create account</div>
+    <div class="err-box" id="signup-err"></div>
+    <div class="field"><label>Full name</label><input type="text" id="su-name" placeholder="e.g. Ravi Kumar" autocomplete="name"/></div>
+    <div class="field"><label>Email address</label><input type="email" id="su-email" placeholder="you@example.com" autocomplete="email"/></div>
+    <div class="field"><label>Password</label><input type="password" id="su-pass" placeholder="At least 8 characters" autocomplete="new-password"/></div>
+    <div class="field"><label>Confirm password</label><input type="password" id="su-pass2" placeholder="Repeat password" autocomplete="new-password"/></div>
+    <button class="btn btn-primary" onclick="doSignup()">Continue →</button>
+    <div class="auth-switch">Already have an account? <a onclick="showScreen('screen-login')">Log in</a></div>
+  </div>
+</div>
+
+<!-- AGE -->
+<div id="screen-age" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">Eco<span>Rank</span></div>
+    <div class="auth-tagline">Tell us about yourself</div>
+    <div class="progress-dots"><div class="dot done"></div><div class="dot active"></div><div class="dot"></div></div>
+    <div class="step-label">Step 2 of 3 — Your profile</div>
+    <div class="err-box" id="age-err"></div>
+    <div class="field"><label>Your age</label><input type="number" id="age-val" min="6" max="110" placeholder="Enter your age"/><div class="field-hint">Users under 13 will require parent/guardian approval in the full app.</div></div>
+    <div class="field"><label>Gender (optional)</label>
+      <select id="gender-val"><option value="">Prefer not to say</option><option>Male</option><option>Female</option><option>Non-binary</option><option>Other</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="doAge()">Continue →</button>
+  </div>
+</div>
+
+<!-- LOCATION -->
+<div id="screen-location" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">Eco<span>Rank</span></div>
+    <div class="progress-dots"><div class="dot done"></div><div class="dot done"></div><div class="dot active"></div></div>
+    <div class="step-label">Step 3 of 3 — Your locality</div>
+    <div class="loc-card">
+      <div class="loc-icon">📍</div>
+      <h2>Allow location access</h2>
+      <p>EcoRank uses your location to place you in your town's leaderboard and verify that activities happen nearby.</p>
+      <button class="btn btn-primary" id="detect-btn" onclick="detectLocation()" style="margin-top:0;">Detect my location</button>
+      <button class="btn btn-outline" onclick="showManual()">Enter town manually</button>
+    </div>
+    <div class="loc-result" id="loc-result"></div>
+    <div class="field" id="manual-field" style="display:none;"><label>Town / City</label><input type="text" id="manual-town" placeholder="e.g. Tirupati, Nellore..."/></div>
+    <div class="err-box" id="loc-err"></div>
+    <button class="btn btn-primary" id="enter-btn" style="display:none;" onclick="enterApp()">Enter EcoRank 🌱</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">Eco<span>Rank</span></div>
+    <div class="auth-tagline">Welcome back</div>
+    <div class="err-box" id="login-err"></div>
+    <div class="field"><label>Email address</label><input type="email" id="li-email" placeholder="you@example.com" autocomplete="email"/></div>
+    <div class="field"><label>Password</label><input type="password" id="li-pass" placeholder="Your password" autocomplete="current-password"/></div>
+    <button class="btn btn-primary" onclick="doLogin()">Log in</button>
+    <div class="auth-switch">New here? <a onclick="showScreen('screen-signup')">Create account</a></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="screen-app" class="screen">
+  <div class="topbar">
+    <div class="topbar-logo">Eco<span>Rank</span><span class="saving-dot" id="saving-dot"></span></div>
+    <div class="topbar-right">
+      <div class="town-chip" id="app-town-chip">📍 Tirupati</div>
+      <div class="avatar-sm" id="app-avatar" onclick="switchTab('home')">RK</div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div id="tab-home" class="tab-content active">
+    <div id="badge-banner" class="badge-banner"><span id="banner-icon" style="font-size:1.4rem;"></span><div><strong id="banner-name"></strong> badge unlocked! 🎉</div></div>
+    <div class="profile-card" style="margin-top:.5rem;">
+      <div class="profile-top">
+        <div class="avatar-lg" id="prof-avatar">RK</div>
+        <div style="flex:1;">
+          <div class="profile-name" id="prof-name">Loading...</div>
+          <div class="profile-sub" id="prof-sub">...</div>
+        </div>
+        <div class="score-pill" id="month-score">0</div>
+      </div>
+      <div class="xp-row"><span>Monthly XP</span><span id="xp-label">0 / 200</span></div>
+      <div class="bar-track"><div class="bar-fill" id="xp-bar" style="width:0%;"></div></div>
+      <div class="xp-hint" id="xp-hint">200 XP to Silver Planter</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-label">Saplings planted</div><div class="stat-val" id="stat-saplings">0</div><div class="stat-sub">this month</div></div>
+        <div class="stat-box"><div class="stat-label">Clean drives</div><div class="stat-val" id="stat-drives">0</div><div class="stat-sub">participated</div></div>
+      </div>
+      <div class="lifetime-row">
+        <div class="lifetime-label">Lifetime XP (never resets)</div>
+        <div class="lifetime-val" id="lifetime-val">0 XP</div>
+      </div>
+      <button class="btn btn-danger" onclick="doLogout()">Log out</button>
+    </div>
+    <div class="sec-label">Recent activity</div>
+    <div id="activity-list"><div class="empty-state"><div class="empty-icon">🌱</div>No activity yet — log your first action!</div></div>
+  </div>
+
+  <!-- BADGES -->
+  <div id="tab-badges" class="tab-content">
+    <div class="sec-label">Sapling badges</div>
+    <div class="badge-grid">
+      <div class="badge-card locked" id="b-sprout"><div class="badge-emoji">🌱</div><div class="badge-name">First Sprout</div><div class="badge-desc">Plant 1 sapling</div></div>
+      <div class="badge-card locked" id="b-seedling"><div class="badge-emoji">🌿</div><div class="badge-name">Seedling</div><div class="badge-desc">5 saplings</div></div>
+      <div class="badge-card locked" id="b-hero"><div class="badge-emoji">🌳</div><div class="badge-name">Sapling Hero</div><div class="badge-desc">10 saplings</div></div>
+      <div class="badge-card locked" id="b-grove"><div class="badge-emoji">🌲</div><div class="badge-name">Grove Keeper</div><div class="badge-desc">25 saplings</div></div>
+      <div class="badge-card locked" id="b-forest"><div class="badge-emoji">🏕️</div><div class="badge-name">Forest Maker</div><div class="badge-desc">50 saplings</div></div>
+      <div class="badge-card locked" id="b-legend"><div class="badge-emoji">🌏</div><div class="badge-name">Eco Legend</div><div class="badge-desc">100 saplings</div></div>
+    </div>
+    <div class="sec-label">Clean drive badges</div>
+    <div class="badge-grid">
+      <div class="badge-card locked" id="b-sweep1"><div class="badge-emoji">🧹</div><div class="badge-name">First Sweep</div><div class="badge-desc">1 clean drive</div></div>
+      <div class="badge-card locked" id="b-cleaner"><div class="badge-emoji">♻️</div><div class="badge-name">Cleaner</div><div class="badge-desc">3 drives</div></div>
+      <div class="badge-card locked" id="b-champ"><div class="badge-emoji">🏅</div><div class="badge-name">Drive Champion</div><div class="badge-desc">10 drives</div></div>
+      <div class="badge-card locked" id="b-guardian"><div class="badge-emoji">🛡️</div><div class="badge-name">Town Guardian</div><div class="badge-desc">25 drives</div></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="tab-log" class="tab-content">
+    <div class="sec-label">What did you do today?</div>
+    <div class="log-grid">
+      <button class="log-btn" onclick="openModal('sapling')"><div class="log-btn-icon">🌱</div><div class="log-btn-label">Plant saplings</div><div class="log-btn-pts">+10 pts each</div></button>
+      <button class="log-btn" onclick="openModal('clean')"><div class="log-btn-icon">🧹</div><div class="log-btn-label">Clean drive</div><div class="log-btn-pts">+30 pts per drive</div></button>
+    </div>
+    <div class="sec-label">How verification works</div>
+    <div class="verify-box">
+      <div class="vstep"><div class="vnum">1</div><div>Upload a real photo of your activity.</div></div>
+      <div class="vstep"><div class="vnum">2</div><div>GPS coordinates are captured and verified against your registered town.</div></div>
+      <div class="vstep"><div class="vnum">3</div><div>AI detector checks if the image is AI-generated or manipulated.</div></div>
+      <div class="vstep"><div class="vnum">4</div><div>Verified submissions earn points instantly. Flagged ones go to admin review.</div></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="tab-leaderboard" class="tab-content">
+    <div class="lb-toggle">
+      <button class="lb-toggle-btn active" id="lb-btn-month" onclick="switchLb('month')">This month</button>
+      <button class="lb-toggle-btn" id="lb-btn-alltime" onclick="switchLb('alltime')">All-time</button>
+    </div>
+    <div id="lb-month-section"><div class="lb-note" id="lb-month-note">Loading...</div><div class="lb-list" id="lb-month-list"><div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div></div></div>
+    <div id="lb-alltime-section" style="display:none;"><div class="lb-note">Lifetime points — never resets</div><div class="lb-list" id="lb-alltime-list"><div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div></div></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-home" onclick="switchTab('home')"><span class="nav-icon">🏠</span>Home</button>
+    <button class="nav-btn" id="nav-badges" onclick="switchTab('badges')"><span class="nav-icon">🏅</span>Badges</button>
+    <button class="nav-btn" id="nav-log" onclick="switchTab('log')"><span class="nav-icon">➕</span>Log</button>
+    <button class="nav-btn" id="nav-leaderboard" onclick="switchTab('leaderboard')"><span class="nav-icon">🏆</span>Rankings</button>
+  </nav>
+</div>
+
+<!-- LOG MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Log saplings planted</div>
+    <div class="field"><label id="qty-label">Number of saplings</label><input type="number" id="modal-qty" min="1" max="100" value="1"/></div>
+    <div class="field"><label>Location / area</label><input type="text" id="modal-loc" placeholder="e.g. Anna Nagar, MG Road..."/></div>
+    <div class="field">
+      <label>Upload photo proof</label>
+      <input type="file" id="modal-photo" accept="image/*" onchange="runAiCheck()" style="font-size:0.83rem;"/>
+      <div class="ai-status" id="ai-status"></div>
+    </div>
+    <div class="field"><label>GPS (auto-detected)</label><input type="text" id="modal-gps" readonly/></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitLog()" disabled style="flex:1;">Submit</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, orderBy, limit, getDocs, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey: "AIzaSyBpWru02cV4JMIivFDxUklk_etQF11yVLI",
+  authDomain: "ecorank-29270.firebaseapp.com",
+  projectId: "ecorank-29270",
+  storageBucket: "ecorank-29270.firebasestorage.app",
+  messagingSenderId: "622112029974",
+  appId: "1:622112029974:web:bd2b4391fa8557d2972437"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+// ── STATE ──
+let currentUser = null;
+let userData = {};
+let town = 'Tirupati';
+let gpsStr = '13.6288° N, 79.4192° E';
+let currentModal = 'sapling';
+let aiPassed = false;
+
+const LEVELS = [
+  { min:0,    max:199,      label:'Bronze Planter' },
+  { min:200,  max:499,      label:'Silver Planter' },
+  { min:500,  max:999,      label:'Gold Planter'   },
+  { min:1000, max:Infinity, label:'Eco Champion'   },
+];
+
+const BADGES = [
+  { id:'b-sprout',   type:'sap', n:1,   icon:'🌱', name:'First Sprout'   },
+  { id:'b-seedling', type:'sap', n:5,   icon:'🌿', name:'Seedling'       },
+  { id:'b-hero',     type:'sap', n:10,  icon:'🌳', name:'Sapling Hero'   },
+  { id:'b-grove',    type:'sap', n:25,  icon:'🌲', name:'Grove Keeper'   },
+  { id:'b-forest',   type:'sap', n:50,  icon:'🏕️', name:'Forest Maker'  },
+  { id:'b-legend',   type:'sap', n:100, icon:'🌏', name:'Eco Legend'     },
+  { id:'b-sweep1',   type:'drv', n:1,   icon:'🧹', name:'First Sweep'    },
+  { id:'b-cleaner',  type:'drv', n:3,   icon:'♻️', name:'Cleaner'        },
+  { id:'b-champ',    type:'drv', n:10,  icon:'🏅', name:'Drive Champion' },
+  { id:'b-guardian', type:'drv', n:25,  icon:'🛡️', name:'Town Guardian'  },
+];
+
+// ── UTILS ──
+window.showScreen = function(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+};
+
+function getInitials(name) {
+  return name.trim().split(/\s+/).map(w => w[0].toUpperCase()).slice(0,2).join('');
+}
+
+function showErr(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+function hideErr(id) { document.getElementById(id).style.display='none'; }
+
+window.showToast = function(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+};
+
+function showSaving() {
+  const d = document.getElementById('saving-dot');
+  d.classList.add('show');
+  setTimeout(() => d.classList.remove('show'), 2000);
+}
+
+// ── AUTH STATE LISTENER ──
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    await loadUserData(user.uid);
+    launchApp();
+  } else {
+    currentUser = null;
+    document.getElementById('loading-overlay').style.display = 'none';
+    showScreen('screen-login');
+  }
+});
+
+// ── LOAD USER DATA FROM FIRESTORE ──
+async function loadUserData(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) {
+      userData = snap.data();
+      town = userData.town || 'Tirupati';
+      gpsStr = userData.gps || '13.6288° N, 79.4192° E';
+    }
+  } catch(e) {
+    console.error('Error loading user data:', e);
+  }
+}
+
+// ── SAVE USER DATA TO FIRESTORE ──
+async function saveUserData(updates) {
+  if (!currentUser) return;
+  try {
+    showSaving();
+    userData = { ...userData, ...updates };
+    await updateDoc(doc(db, 'users', currentUser.uid), updates);
+  } catch(e) {
+    console.error('Error saving data:', e);
+  }
+}
+
+// ── SIGNUP ──
+window.doSignup = async function() {
+  hideErr('signup-err');
+  const name  = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('su-pass').value;
+  const pass2 = document.getElementById('su-pass2').value;
+
+  if (!name)  return showErr('signup-err','Please enter your full name.');
+  if (!email || !email.includes('@')) return showErr('signup-err','Please enter a valid email.');
+  if (pass.length < 8) return showErr('signup-err','Password must be at least 8 characters.');
+  if (pass !== pass2)  return showErr('signup-err','Passwords do not match.');
+
+  const btn = document.querySelector('#screen-signup .btn-primary');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: name });
+    // Store temp signup data, continue to age step
+    window._signupName = name;
+    btn.disabled = false; btn.textContent = 'Continue →';
+    showScreen('screen-age');
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Continue →';
+    if (e.code === 'auth/email-already-in-use') showErr('signup-err','An account with this email already exists.');
+    else if (e.code === 'auth/invalid-email')   showErr('signup-err','Please enter a valid email address.');
+    else showErr('signup-err', 'Something went wrong. Please try again.');
+  }
+};
+
+// ── AGE ──
+window.doAge = function() {
+  hideErr('age-err');
+  const age = parseInt(document.getElementById('age-val').value);
+  if (!age || age < 6 || age > 110) return showErr('age-err','Please enter a valid age (6–110).');
+  window._signupAge    = age;
+  window._signupGender = document.getElementById('gender-val').value;
+  showScreen('screen-location');
+};
+
+// ── LOCATION ──
+window.detectLocation = function() {
+  const btn = document.getElementById('detect-btn');
+  btn.textContent = 'Detecting…'; btn.disabled = true;
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        gpsStr = pos.coords.latitude.toFixed(4)+'° N, '+pos.coords.longitude.toFixed(4)+'° E';
+        town = 'Tirupati'; // In production: reverse-geocode the coordinates
+        onLocationDetected();
+      },
+      () => simulateLocation(),
+      { timeout: 6000 }
+    );
+  } else { simulateLocation(); }
+};
+
+function simulateLocation() {
+  setTimeout(() => { town='Tirupati'; gpsStr='13.6288° N, 79.4192° E'; onLocationDetected(); }, 1200);
+}
+
+function onLocationDetected() {
+  const r = document.getElementById('loc-result');
+  r.style.display = 'block';
+  r.textContent = '📍 Detected: '+town+' ('+gpsStr+')';
+  document.getElementById('enter-btn').style.display = 'block';
+  const btn = document.getElementById('detect-btn');
+  btn.textContent = '✓ Detected'; btn.disabled = false;
+}
+
+window.showManual = function() {
+  document.getElementById('manual-field').style.display = 'block';
+  document.getElementById('enter-btn').style.display = 'block';
+};
+
+window.enterApp = async function() {
+  hideErr('loc-err');
+  const manual = document.getElementById('manual-town').value.trim();
+  if (manual) town = manual;
+  if (!town) return showErr('loc-err','Please detect or enter your town first.');
+
+  const btn = document.getElementById('enter-btn');
+  btn.disabled = true; btn.textContent = 'Setting up...';
+
+  try {
+    const uid = currentUser ? currentUser.uid : auth.currentUser?.uid;
+    if (!uid) { showErr('loc-err','Session expired. Please sign up again.'); return; }
+
+    const newUserData = {
+      name: window._signupName || auth.currentUser?.displayName || 'User',
+      email: auth.currentUser?.email || '',
+      age: window._signupAge || 0,
+      gender: window._signupGender || '',
+      town: town,
+      gps: gpsStr,
+      score: 0,
+      lifetime: 0,
+      saplings: 0,
+      drives: 0,
+      earnedBadges: [],
+      createdAt: serverTimestamp()
+    };
+
+    await setDoc(doc(db, 'users', uid), newUserData);
+    userData = newUserData;
+    btn.disabled = false; btn.textContent = 'Enter EcoRank 🌱';
+    launchApp();
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Enter EcoRank 🌱';
+    showErr('loc-err','Error saving your data. Please try again.');
+    console.error(e);
+  }
+};
+
+// ── LOGIN ──
+window.doLogin = async function() {
+  hideErr('login-err');
+  const email = document.getElementById('li-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('li-pass').value;
+
+  const btn = document.querySelector('#screen-login .btn-primary');
+  btn.disabled = true; btn.textContent = 'Logging in...';
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged will handle the rest
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Log in';
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
+      showErr('login-err','Incorrect email or password.');
+    } else {
+      showErr('login-err','Something went wrong. Please try again.');
+    }
+  }
+};
+
+// ── LOGOUT ──
+window.doLogout = async function() {
+  try { await signOut(auth); } catch(e) { console.error(e); }
+};
+
+// ── LAUNCH APP ──
+function launchApp() {
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  const name     = userData.name || currentUser?.displayName || 'User';
+  const initials = getInitials(name);
+  town = userData.town || town;
+
+  document.getElementById('app-avatar').textContent    = initials;
+  document.getElementById('prof-avatar').textContent   = initials;
+  document.getElementById('prof-name').textContent     = name;
+  document.getElementById('app-town-chip').textContent = '📍 '+town;
+  document.getElementById('modal-gps').value           = userData.gps || gpsStr;
+  document.getElementById('lb-month-note').textContent = 'Resets 1 May 2026 · '+town;
+
+  // Restore badges
+  (userData.earnedBadges || []).forEach(id => unlockBadgeEl(id, false));
+
+  updateStats();
+  loadActivityFeed();
+  renderLeaderboards();
+  showScreen('screen-app');
+  switchTab('home');
+}
+
+// ── TABS ──
+window.switchTab = function(name) {
+  ['home','badges','log','leaderboard'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===name);
+    document.getElementById('nav-'+t).classList.toggle('active', t===name);
+  });
+  if (name === 'leaderboard') renderLeaderboards();
+};
+
+// ── LEADERBOARD ──
+window.switchLb = function(view) {
+  const isMonth = view === 'month';
+  document.getElementById('lb-month-section').style.display  = isMonth ? 'block':'none';
+  document.getElementById('lb-alltime-section').style.display = isMonth ? 'none':'block';
+  document.getElementById('lb-btn-month').classList.toggle('active', isMonth);
+  document.getElementById('lb-btn-alltime').classList.toggle('active', !isMonth);
+};
+
+async function renderLeaderboards() {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('town', '==', town),
+      orderBy('score', 'desc'),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    const users = [];
+    snap.forEach(d => users.push({ id:d.id, ...d.data() }));
+
+    const monthHTML = users.map((u,i) => lbRow(u, i, false)).join('') || '<div class="empty-state">No users yet in your town.</div>';
+    document.getElementById('lb-month-list').innerHTML = monthHTML;
+
+    const qAll = query(
+      collection(db, 'users'),
+      where('town', '==', town),
+      orderBy('lifetime', 'desc'),
+      limit(10)
+    );
+    const snapAll = await getDocs(qAll);
+    const usersAll = [];
+    snapAll.forEach(d => usersAll.push({ id:d.id, ...d.data() }));
+
+    const allHTML = usersAll.map((u,i) => lbRow(u, i, true)).join('') || '<div class="empty-state">No users yet.</div>';
+    document.getElementById('lb-alltime-list').innerHTML = allHTML;
+  } catch(e) {
+    console.error('Leaderboard error:', e);
+    document.getElementById('lb-month-list').innerHTML = '<div class="empty-state">Could not load leaderboard.</div>';
+  }
+}
+
+function lbRow(u, i, alltime) {
+  const isMe = currentUser && u.id === currentUser.uid;
+  const medals = ['🥇','🥈','🥉'];
+  const rankLabel = i < 3 ? medals[i] : (i+1);
+  const rankClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+  const name = u.name || 'Anonymous';
+  const initials = getInitials(name);
+  const pts = alltime ? (u.lifetime||0) : (u.score||0);
+  const sub = alltime
+    ? ((u.saplings||0)+' saplings total')
+    : ((u.saplings||0)+' saplings · '+(u.drives||0)+' drives');
+  const youTag = isMe ? '<span class="you-tag">You</span>' : '';
+  const colors = ['#9FE1CB','#CECBF6','#F4C0D1','#FAC775','#B5D4F4','#C0DD97'];
+  const textColors = ['#085041','#26215C','#4B1528','#412402','#042C53','#27500A'];
+  const ci = (u.name||'').charCodeAt(0) % colors.length;
+  return `<div class="lb-item${isMe?' me':''}">
+    <div class="rank-col ${rankClass}">${rankLabel}</div>
+    <div class="lb-av" style="background:${colors[ci]};color:${textColors[ci]};">${initials}</div>
+    <div class="lb-info"><div class="lb-name">${name} ${youTag}</div><div class="lb-sub">${sub}</div></div>
+    <div class="lb-pts">${pts.toLocaleString()}</div>
+  </div>`;
+}
+
+// ── ACTIVITY FEED ──
+async function loadActivityFeed() {
+  try {
+    const q = query(
+      collection(db, 'users', currentUser.uid, 'activities'),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    const list = document.getElementById('activity-list');
+    if (snap.empty) return;
+    list.innerHTML = '';
+    snap.forEach(d => {
+      const a = d.data();
+      list.appendChild(buildActivityEl(a.label, a.location, a.icon, a.iconBg, a.pts));
+    });
+  } catch(e) {
+    console.error('Activity feed error:', e);
+  }
+}
+
+function buildActivityEl(label, loc, icon, bg, pts) {
+  const el = document.createElement('div');
+  el.className = 'act-item';
+  el.innerHTML = `
+    <div class="act-icon-wrap" style="background:${bg};">${icon}</div>
+    <div class="act-info">
+      <div class="act-title">${label} <span class="verified-chip">✓ Verified</span></div>
+      <div class="act-meta">${loc}</div>
+    </div>
+    <div class="act-pts">+${pts}</div>`;
+  return el;
+}
+
+// ── MODAL ──
+window.openModal = function(type) {
+  currentModal = type; aiPassed = false;
+  document.getElementById('modal-title').textContent = type==='sapling' ? 'Log saplings planted' : 'Log clean drive';
+  document.getElementById('qty-label').textContent   = type==='sapling' ? 'Number of saplings'   : 'Duration (hours)';
+  document.getElementById('modal-qty').value  = 1;
+  document.getElementById('modal-loc').value  = '';
+  document.getElementById('modal-photo').value = '';
+  const s = document.getElementById('ai-status');
+  s.style.display='none'; s.className='ai-status';
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('modal-overlay').classList.add('open');
+};
+
+window.closeModal = function() {
+  document.getElementById('modal-overlay').classList.remove('open');
+};
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) window.closeModal();
+});
+
+// ── AI CHECK (simulated) ──
+window.runAiCheck = function() {
+  const s = document.getElementById('ai-status');
+  s.style.display='block'; s.className='ai-status checking';
+  s.textContent = '🔍 Analyzing photo — checking for AI generation or manipulation…';
+  document.getElementById('submit-btn').disabled = true;
+  aiPassed = false;
+  setTimeout(() => {
+    const ok = Math.random() > 0.15;
+    aiPassed = ok;
+    s.className = 'ai-status '+(ok?'ok':'fail');
+    s.textContent = ok
+      ? '✅ Photo verified — no AI generation detected. GPS confirmed.'
+      : '❌ Photo flagged as possibly AI-generated. Please upload a genuine photo.';
+    document.getElementById('submit-btn').disabled = !ok;
+  }, 1800);
+};
+
+// ── SUBMIT LOG ──
+window.submitLog = async function() {
+  if (!aiPassed) return;
+  const qty = parseInt(document.getElementById('modal-qty').value)||1;
+  const loc = document.getElementById('modal-loc').value.trim() || town;
+
+  let pts, label, icon, iconBg;
+  if (currentModal === 'sapling') {
+    pts=qty*10; label='Planted '+qty+' sapling'+(qty>1?'s':''); icon='🌱'; iconBg='#E1F5EE';
+  } else {
+    pts=30; label='Clean drive ('+qty+'h)'; icon='🧹'; iconBg='#FAEEDA';
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled=true; btn.textContent='Saving...';
+
+  try {
+    // Update user stats
+    const newScore    = (userData.score    || 0) + pts;
+    const newLifetime = (userData.lifetime || 0) + pts;
+    const newSaplings = (userData.saplings || 0) + (currentModal==='sapling' ? qty : 0);
+    const newDrives   = (userData.drives   || 0) + (currentModal==='clean'   ? 1   : 0);
+
+    await saveUserData({ score: newScore, lifetime: newLifetime, saplings: newSaplings, drives: newDrives });
+
+    // Save activity to Firestore subcollection
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) + ' · ' + loc;
+    await addDoc(collection(db,'users',currentUser.uid,'activities'), {
+      label, location: timeStr, icon, iconBg, pts,
+      type: currentModal,
+      createdAt: serverTimestamp()
+    });
+
+    // Check badges
+    const newBadges = checkBadges(newSaplings, newDrives);
+    if (newBadges.length > 0) {
+      const allBadges = [...(userData.earnedBadges||[]), ...newBadges];
+      await saveUserData({ earnedBadges: allBadges });
+    }
+
+    // Update UI
+    updateStats();
+    const list = document.getElementById('activity-list');
+    const empty = list.querySelector('.empty-state');
+    if (empty) empty.remove();
+    list.insertBefore(buildActivityEl(label, timeStr, icon, iconBg, pts), list.firstChild);
+
+    btn.disabled=false; btn.textContent='Submit';
+    window.closeModal();
+    window.showToast('+'+pts+' pts saved to Firebase! 🌿');
+  } catch(e) {
+    btn.disabled=false; btn.textContent='Submit';
+    console.error('Submit error:', e);
+    window.showToast('Error saving. Please try again.');
+  }
+};
+
+// ── STATS ──
+function updateStats() {
+  const score    = userData.score    || 0;
+  const lifetime = userData.lifetime || 0;
+  const saplings = userData.saplings || 0;
+  const drives   = userData.drives   || 0;
+
+  const lv   = LEVELS.find(l => score>=l.min && score<=l.max) || LEVELS[LEVELS.length-1];
+  const next  = LEVELS.find(l => l.min > score);
+  const pct   = next ? Math.round((score-lv.min)/(next.min-lv.min)*100) : 100;
+
+  document.getElementById('prof-sub').textContent      = town+' · '+lv.label;
+  document.getElementById('month-score').textContent   = score.toLocaleString();
+  document.getElementById('stat-saplings').textContent = saplings;
+  document.getElementById('stat-drives').textContent   = drives;
+  document.getElementById('lifetime-val').textContent  = lifetime.toLocaleString()+' XP';
+  document.getElementById('xp-bar').style.width        = Math.min(pct,100)+'%';
+  document.getElementById('xp-label').textContent      = score+' / '+(next?next.min:score);
+  document.getElementById('xp-hint').textContent       = next ? (next.min-score)+' XP to '+next.label : '🏆 Max level!';
+}
+
+// ── BADGES ──
+function checkBadges(saplings, drives) {
+  const newlyUnlocked = [];
+  BADGES.forEach(b => {
+    const el = document.getElementById(b.id);
+    if (!el || !el.classList.contains('locked')) return;
+    const count = b.type==='sap' ? saplings : drives;
+    if (count >= b.n) {
+      unlockBadgeEl(b.id, true);
+      newlyUnlocked.push(b.id);
+    }
+  });
+  return newlyUnlocked;
+}
+
+function unlockBadgeEl(id, animate) {
+  const el = document.getElementById(id);
+  if (!el || !el.classList.contains('locked')) return;
+  el.classList.remove('locked'); el.classList.add('earned');
+  if (!el.querySelector('.badge-earned-label')) {
+    const lbl = document.createElement('div');
+    lbl.className='badge-earned-label'; lbl.textContent='✓ Earned';
+    el.appendChild(lbl);
+  }
+  if (animate) {
+    const def = BADGES.find(b => b.id===id);
+    if (def) {
+      document.getElementById('banner-icon').textContent = def.icon;
+      document.getElementById('banner-name').textContent = def.name;
+      const banner = document.getElementById('badge-banner');
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 4000);
+    }
+  }
+}
+
+// ── ENTER KEY ──
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const active = document.querySelector('.screen.active');
+  if (!active) return;
+  if (active.id==='screen-signup')  window.doSignup();
+  if (active.id==='screen-login')   window.doLogin();
+  if (active.id==='screen-age')     window.doAge();
+  if (active.id==='screen-location') window.enterApp();
+});
+
+// Expose lb note element for launchApp
+document.getElementById('lb-month-note') && (window._lbNote = document.getElementById('lb-month-note'));
+</script>
+</body>
+</html>
